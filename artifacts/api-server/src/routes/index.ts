@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { Router, type IRouter } from "express";
-import healthRouter from "./health";
+import healthRouter from "./health.js";
 import claudeRouter from "./claude";
 import openaiRouter from "./openai";
 import geminiRouter from "./gemini";
