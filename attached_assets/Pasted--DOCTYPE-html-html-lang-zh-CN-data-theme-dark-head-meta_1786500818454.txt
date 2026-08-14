@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Worcon</title>
+<style>
+  :root {
+    --font-round: ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN",
+                  "PingFang SC", "Quicksand", system-ui, sans-serif;
+    --ease: cubic-bezier(.22,.61,.36,1);
+  }
+  html[data-theme="dark"] {
+    --ink:#F4F5F7; --ink-dim:#9AA0AB;
+    --glass:rgba(255,255,255,.09); --glass-2:rgba(255,255,255,.16);
+    --edge:rgba(255,255,255,.26); --spec:rgba(255,255,255,.5);
+    --rim:.5;
+  }
+  html[data-theme="light"] {
+    --ink:#12201C; --ink-dim:#4E5C57;
+    --glass:rgba(255,255,255,.26); --glass-2:rgba(255,255,255,.44);
+    --edge:rgba(255,255,255,.78); --spec:rgba(255,255,255,.95);
+    --rim:.95;
+  }
+
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body {
+    margin:0; min-height:100dvh; overflow:hidden;
+    font-family:var(--font-round); color:var(--ink);
+    background:#000; transition:color .5s var(--ease);
+  }
+
+  #field { position:fixed; inset:0; width:100%; height:100%; z-index:0; pointer-events:none; }
+
+  .shell { position:relative; z-index:1; display:flex; flex-direction:column;
+           height:100dvh; max-width:720px; margin:0 auto; padding:0 20px; }
+
+  header { display:flex; align-items:center; justify-content:space-between;
+           padding:22px 4px 14px; background:none; }
+  .mark { font-size:21px; font-weight:500; letter-spacing:.01em;
+          text-shadow:0 1px 14px rgba(0,0,0,.3); }
+  .mark span { display:inline-block; margin-left:5px; width:6px; height:6px;
+               border-radius:50%; background:currentColor;
+               animation:pulse 5s var(--ease) infinite; }
+  @keyframes pulse { 0%,100%{opacity:.28;transform:scale(.85)} 50%{opacity:1;transform:scale(1)} }
+
+  .lg {
+    background: var(--glass);
+    backdrop-filter: blur(30px) saturate(1.7) brightness(1.06);
+    -webkit-backdrop-filter: blur(30px) saturate(1.7) brightness(1.06);
+    border: .5px solid var(--edge);
+    box-shadow: inset 0 1px 0 var(--spec),
+                inset 0 -1px 0 rgba(255,255,255,.1),
+                0 8px 30px rgba(0,0,0,.2);
+  }
+
+  .gear { width:38px; height:38px; border-radius:50%; display:grid; place-items:center;
+          cursor:pointer; color:var(--ink); transition:transform .4s var(--ease); }
+  .gear:hover { transform:rotate(38deg); }
+  .gear:focus-visible { outline:2px solid var(--ink); outline-offset:3px; }
+
+  .stream { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:12px;
+            padding:8px 2px 20px; scrollbar-width:none; }
+  .stream::-webkit-scrollbar { display:none; }
+
+  .msg { max-width:78%; padding:13px 18px; font-size:17px; line-height:1.58;
+         border-radius:24px; animation:rise .55s var(--ease) both; }
+  @keyframes rise { from{opacity:0;transform:translateY(10px) scale(.98)} }
+  .msg.ai { align-self:flex-start; border-bottom-left-radius:9px; }
+  .msg.me { align-self:flex-end; border-bottom-right-radius:9px; background:var(--glass-2); }
+
+  .dots { display:flex; gap:5px; padding:4px 2px; }
+  .dots i { width:6px; height:6px; border-radius:50%; background:var(--ink-dim); animation:blink 1.3s infinite; }
+  .dots i:nth-child(2){animation-delay:.18s} .dots i:nth-child(3){animation-delay:.36s}
+  @keyframes blink { 0%,60%,100%{opacity:.25} 30%{opacity:1} }
+
+  .bar { display:flex; gap:10px; align-items:center;
+         margin-bottom:max(18px, env(safe-area-inset-bottom));
+         padding:7px 7px 7px 20px; border-radius:32px; }
+  .bar input { flex:1; border:0; background:none; outline:none; font-family:inherit;
+               font-size:17px; color:var(--ink); padding:10px 0; }
+  .bar input::placeholder { color:var(--ink-dim); }
+  .send { width:40px; height:40px; flex:none; border:0; border-radius:50%; display:grid;
+          place-items:center; cursor:pointer; color:var(--ink);
+          background:rgba(255,255,255,.2);
+          backdrop-filter:blur(10px) brightness(1.3);
+          -webkit-backdrop-filter:blur(10px) brightness(1.3);
+          box-shadow:inset 0 1px 0 var(--spec); transition:transform .3s var(--ease); }
+  .send:active { transform:scale(.9); }
+  .send:focus-visible { outline:2px solid var(--ink); outline-offset:3px; }
+
+  .sheet { position:fixed; inset:0; z-index:5; display:grid; place-items:center;
+           background:rgba(0,0,0,.22); opacity:0; pointer-events:none;
+           transition:opacity .35s var(--ease); }
+  .sheet[data-open="1"] { opacity:1; pointer-events:auto; }
+  .panel { width:min(340px,86vw); padding:26px 24px; border-radius:34px;
+           transform:scale(.94); transition:transform .35s var(--ease); }
+  .sheet[data-open="1"] .panel { transform:scale(1); }
+  .panel h2 { margin:0 0 20px; font-size:15px; font-weight:500; color:var(--ink-dim); }
+  .row { display:flex; align-items:center; justify-content:space-between; }
+  .row label { font-size:17px; }
+
+  .toggle { width:54px; height:32px; border-radius:16px; cursor:pointer; position:relative;
+            background:rgba(255,255,255,.14); border:.5px solid var(--edge); }
+  .knob { position:absolute; top:3px; left:3px; width:25px; height:25px; border-radius:50%;
+          background:var(--ink); transition:transform .42s var(--ease); }
+  .toggle[aria-checked="true"] .knob { transform:translateX(22px); }
+  .toggle:focus-visible { outline:2px solid var(--ink); outline-offset:3px; }
+
+  .hint { margin:22px 0 0; font-size:13px; line-height:1.6; color:var(--ink-dim); }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,*::before,*::after { animation-duration:.01ms !important; transition-duration:.01ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="field" aria-hidden="true"></canvas>
+
+<div class="shell">
+  <header>
+    <div class="mark">Worcon<span></span></div>
+    <button class="gear lg" id="gear" aria-label="设置">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+        <circle cx="12" cy="12" r="3.2"/>
+        <path d="M12 2.5v2M12 19.5v2M21.5 12h-2M4.5 12h-2M18.7 5.3l-1.4 1.4M6.7 17.3l-1.4 1.4M18.7 18.7l-1.4-1.4M6.7 6.7L5.3 5.3"/>
+      </svg>
+    </button>
+  </header>
+
+  <div class="stream" id="stream"></div>
+
+  <div class="bar lg">
+    <input id="input" placeholder="随便说点什么" autocomplete="off">
+    <button class="send" id="send" aria-label="发送">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 19V5M5 12l7-7 7 7"/>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<div class="sheet" id="sheet">
+  <div class="panel lg">
+    <h2>设置</h2>
+    <div class="row">
+      <label for="tgTheme">浅色背景</label>
+      <button class="toggle" id="tgTheme" role="switch" aria-checked="false" aria-label="浅色背景"><span class="knob"></span></button>
+    </div>
+    <p class="hint">聊得越久，背后的花开得越满。</p>
+  </div>
+</div>
+
+<script>
+const cv  = document.getElementById('field');
+const ctx = cv.getContext('2d');
+const bg  = document.createElement('canvas');
+const bx  = bg.getContext('2d');
+const GOLD = Math.PI * (3 - Math.sqrt(5));
+
+let W, H, DPR;
+function size(){
+  DPR = Math.min(devicePixelRatio || 1, 2);
+  W = innerWidth; H = innerHeight;
+  cv.width = W*DPR; cv.height = H*DPR;
+  cv.style.width = W+'px'; cv.style.height = H+'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  bg.width = W; bg.height = H;
+}
+size(); addEventListener('resize', size);
+
+/* 噪点：平滑渐变没东西可折射，得给珠子一点"抓手" */
+const noise = document.createElement('canvas');
+noise.width = noise.height = 220;
+(function(){
+  const nx = noise.getContext('2d');
+  const img = nx.createImageData(220, 220);
+  for (let i = 0; i < img.data.length; i += 4){
+    const v = 128 + (Math.random() - .5) * 90;
+    img.data[i] = img.data[i+1] = img.data[i+2] = v;
+    img.data[i+3] = 255;
+  }
+  nx.putImageData(img, 0, 0);
+})();
+const noisePat = bx.createPattern(noise, 'repeat');
+
+const BREATH_W = 11;
+const BREATH_A = 0.15;
+const WAVE     = 0.42;
+
+const CAP = 420;
+let bloom = 0, target = 140;
+let RIM = .5;
+const isLight = () => document.documentElement.dataset.theme === 'light';
+
+/* ─── 光场：茶苗青绿 × 浅雾蓝 ───
+   "雾"靠低饱和实现，不是靠调低透明度。
+   h 三个数 = 色相 / 饱和 / 亮度 */
+const BLOBS = [
+  { h:'142,46%,54%', ox:.24, oy:.28, fx:.000082, fy:.000061, px:0,   py:1.7, r:.68, amp:.26 }, // 嫩芽绿
+  { h:'204,36%,60%', ox:.74, oy:.30, fx:.000054, fy:.000093, px:2.1, py:.4,  r:.66, amp:.30 }, // 浅雾蓝
+  { h:'162,42%,50%', ox:.54, oy:.72, fx:.000071, fy:.000047, px:4.0, py:2.9, r:.62, amp:.24 }, // 茶青
+  { h:'196,30%,52%', ox:.22, oy:.76, fx:.000039, fy:.000078, px:1.2, py:5.1, r:.58, amp:.32 }, // 雾蓝偏灰
+];
+const BASE_DARK  = '#05090B';
+const BASE_LIGHT = '#C4D3CE';
+
+function paintField(now){
+  const light = isLight();
+  bx.globalCompositeOperation = 'source-over';
+  bx.fillStyle = light ? BASE_LIGHT : BASE_DARK;
+  bx.fillRect(0,0,W,H);
+
+  bx.globalCompositeOperation = light ? 'multiply' : 'lighter';
+  const strength = light ? .52 : .60;
+
+  for (const b of BLOBS){
+    const x = W * (b.ox + Math.sin(now*b.fx + b.px) * b.amp);
+    const y = H * (b.oy + Math.cos(now*b.fy + b.py) * b.amp * .8);
+    const r = Math.max(W,H) * b.r * (1 + Math.sin(now*b.fx*.6)*.10);
+    const g = bx.createRadialGradient(x,y,0,x,y,r);
+    g.addColorStop(0,   `hsla(${b.h},${strength})`);
+    g.addColorStop(.45, `hsla(${b.h},${strength*.36})`);
+    g.addColorStop(1,   `hsla(${b.h},0)`);
+    bx.fillStyle = g;
+    bx.beginPath(); bx.arc(x,y,r,0,Math.PI*2); bx.fill();
+  }
+
+  bx.globalCompositeOperation = 'overlay';
+  bx.globalAlpha = light ? .05 : .085;
+  bx.fillStyle = noisePat;
+  bx.fillRect(0,0,W,H);
+  bx.globalAlpha = 1;
+
+  bx.globalCompositeOperation = 'source-over';
+  const v = bx.createRadialGradient(W/2, H*.44, Math.min(W,H)*.26, W/2, H*.44, Math.max(W,H)*.80);
+  v.addColorStop(0, 'rgba(0,0,0,0)');
+  v.addColorStop(1, light ? 'rgba(30,52,46,.34)' : 'rgba(0,0,0,.62)');
+  bx.fillStyle = v; bx.fillRect(0,0,W,H);
+}
+
+/* ─── 真正的玻璃折射 ───────────────────────────
+   均匀放大看起来是塑料。真玻璃是：中心几乎不变形，
+   越靠边缘弯折越厉害、把周围的景象挤成极薄的一圈。
+   做法：把珠子切成若干同心环带，每一环用不同的
+   采样比例去取背景 —— 边缘的环压缩得极狠。
+   K 越大，边缘挤压越强。
+   ──────────────────────────────────────────── */
+const K     = 1.05;   // 折射强度
+const RINGS = 5;      // 环带数：越多越平滑，也越吃性能
+
+function lens(u){ return u / (1 + K*u*u); }   // 源半径 ← 目标半径
+
+function bead(x, y, r, a, shine){
+  ctx.save();
+  ctx.globalAlpha = a;
+
+  for (let k = RINGS; k >= 1; k--){
+    const uOut = k / RINGS;
+    const uIn  = (k-1) / RINGS;
+    const uMid = (uOut + uIn) / 2;
+    const scl  = lens(uMid) / uMid;            // 这一环的采样缩放
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x, y, r*uOut, 0, Math.PI*2);
+    if (uIn > 0) ctx.arc(x, y, r*uIn, 0, Math.PI*2, true);   // 挖空内圈
+    ctx.clip('evenodd');
+
+    const S = r * scl;
+    ctx.drawImage(bg, x-S, y-S, S*2, S*2, x-r, y-r, r*2, r*2);
+    ctx.restore();
+  }
+  ctx.restore();
+
+  // 边缘那圈亮光：左上亮，右下淡
+  const R = RIM * a * shine;
+  const g = ctx.createLinearGradient(x-r, y-r, x+r, y+r);
+  g.addColorStop(0,   `rgba(255,255,255,${R})`);
+  g.addColorStop(.45, `rgba(255,255,255,${R*.16})`);
+  g.addColorStop(.68, `rgba(255,255,255,${R*.05})`);
+  g.addColorStop(1,   `rgba(255,255,255,${R*.45})`);
+  ctx.beginPath(); ctx.arc(x, y, r*.985, 0, Math.PI*2);
+  ctx.strokeStyle = g; ctx.lineWidth = Math.max(.8, r*.075); ctx.stroke();
+
+  // 极淡的色散：玻璃边缘会把光分成冷暖两侧
+  ctx.globalCompositeOperation = 'screen';
+  ctx.beginPath(); ctx.arc(x, y, r*.96, Math.PI*.85, Math.PI*1.55);
+  ctx.strokeStyle = `rgba(120,220,255,${R*.30})`;
+  ctx.lineWidth = Math.max(.6, r*.05); ctx.stroke();
+  ctx.beginPath(); ctx.arc(x, y, r*.96, Math.PI*.05, Math.PI*.55);
+  ctx.strokeStyle = `rgba(255,215,160,${R*.22})`;
+  ctx.lineWidth = Math.max(.6, r*.05); ctx.stroke();
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+function breathe(p){
+  const s = Math.sin(p);
+  return Math.sign(s) * Math.pow(Math.abs(s), 0.72);
+}
+
+let sec = 0, last = 0;
+function frame(now){
+  if (!last) last = now;
+  sec += Math.min(.05, (now - last) / 1000);
+  last = now;
+
+  bloom += (target - bloom) * .010;
+  RIM = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--rim'));
+
+  paintField(now);
+  ctx.clearRect(0,0,W,H);
+  ctx.drawImage(bg, 0, 0, W, H);
+
+  const cx = W/2, cy = H*.43;
+  const spin = sec * .017;
+  const w = Math.PI * 2 / BREATH_W;
+  const scale = Math.min(W,H) * .056;
+  const n = Math.ceil(bloom);
+
+  for (let i=0; i<n; i++){
+    const dist = Math.sqrt(i);
+    const b    = breathe(sec*w - dist*WAVE);
+
+    const ang = i*GOLD + spin;
+    const rad = scale * dist * .88 * (1 + b * BREATH_A);
+    const x = cx + Math.cos(ang)*rad;
+    const y = cy + Math.sin(ang)*rad*.88;
+
+    const edge = 1 - i/CAP;
+    const soft = Math.min(1, (bloom-i)/10);
+    const r     = (7.2 + dist*.62) * (.58 + edge*.42) * (1 + b*.14);
+    const shine = .72 + b * .28;
+
+    if (x < -30 || x > W+30 || y < -30 || y > H+30) continue;
+    bead(x, y, r, Math.min(1, edge*soft*1.1), shine);
+  }
+  requestAnimationFrame(frame);
+}
+if (!matchMedia('(prefers-reduced-motion: reduce)').matches) requestAnimationFrame(frame);
+else { paintField(0); ctx.drawImage(bg,0,0,W,H); }
+
+const root = document.documentElement;
+const sheet = document.getElementById('sheet');
+const tgTheme = document.getElementById('tgTheme');
+
+document.getElementById('gear').onclick = () => sheet.dataset.open = '1';
+sheet.onclick = e => { if (e.target === sheet) sheet.dataset.open = '0'; };
+tgTheme.onclick = () => {
+  const light = isLight();
+  root.dataset.theme = light ? 'dark' : 'light';
+  tgTheme.setAttribute('aria-checked', String(!light));
+};
+
+const stream = document.getElementById('stream');
+const input  = document.getElementById('input');
+
+function say(text, who){
+  const d = document.createElement('div');
+  d.className = 'msg lg ' + who; d.textContent = text;
+  stream.appendChild(d); stream.scrollTop = stream.scrollHeight;
+}
+const demo = ['欸，来了。今天咋样',
+              '还行是还行，还是那种"其实不太行但懒得说"的还行 🤔',
+              '那先不管为什么。就说说今天最烦的那一件',
+              '……我是不是问太急了',
+              '我在'];
+let k = 0;
+say(demo[k++], 'ai');
+
+document.getElementById('send').onclick = send;
+input.onkeydown = e => { if (e.key === 'Enter') send(); };
+
+function send(){
+  const v = input.value.trim(); if (!v) return;
+  say(v,'me'); input.value = '';
+  target = Math.min(CAP, target + 26);
+
+  const wait = document.createElement('div');
+  wait.className = 'msg lg ai';
+  wait.innerHTML = '<div class="dots"><i></i><i></i><i></i></div>';
+  stream.appendChild(wait); stream.scrollTop = stream.scrollHeight;
+
+  setTimeout(() => { wait.remove(); say(demo[k++ % demo.length], 'ai'); target = Math.min(CAP, target + 18); }, 900);
+}
+</script>
+</body>
+</html>

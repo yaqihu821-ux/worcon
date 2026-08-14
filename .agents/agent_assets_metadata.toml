@@ -1,0 +1,16 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "8Rd3abXpIHlO4tvFAuiH1"
+uri = "file://screenshots/phyllo-375-preview.html"
+type = "text"
+title = "叶序花 375px 宽度几何预览"
+description = "用与着色器完全相同的公式在 375px 视口下绘制的 chat / thinking 两种模式珠子布局，用于确认珠子不相交、外圈平滑淡出。"
+
+[[outputs]]
+id = "TSz3sH7-MTGW7Rm1-me-X"
+uri = "file://screenshots/phyllo-responsive-preview.html"
+type = "text"
+title = "叶序花响应式预览：375 / 834 / 1440px"
+description = "与着色器公式完全一致的几何渲染：手机保持小而密不重叠，平板与电脑恢复大而饱满（最大珠半径手机约 8px、桌面约 15px），三种宽度均通过不相交数值检测。"

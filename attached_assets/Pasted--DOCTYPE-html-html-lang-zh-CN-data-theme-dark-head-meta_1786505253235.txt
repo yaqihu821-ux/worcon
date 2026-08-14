@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Worcon</title>
+<style>
+  :root {
+    --font-round: ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN",
+                  "PingFang SC", "Quicksand", system-ui, sans-serif;
+    --ease: cubic-bezier(.22,.61,.36,1);
+  }
+  html[data-theme="dark"] {
+    --ink:#F4F5F7; --ink-dim:#9AA0AB;
+    --glass:rgba(255,255,255,.09); --glass-2:rgba(255,255,255,.16);
+    --edge:rgba(255,255,255,.26); --spec:rgba(255,255,255,.5);
+  }
+  html[data-theme="light"] {
+    --ink:#12201C; --ink-dim:#4E5C57;
+    --glass:rgba(255,255,255,.26); --glass-2:rgba(255,255,255,.44);
+    --edge:rgba(255,255,255,.78); --spec:rgba(255,255,255,.95);
+  }
+
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body {
+    margin:0; min-height:100dvh; overflow:hidden;
+    font-family:var(--font-round); color:var(--ink);
+    background:#05090B; transition:color .5s var(--ease);
+  }
+
+  #field { position:fixed; inset:0; width:100%; height:100%; z-index:0; pointer-events:none; }
+
+  .shell { position:relative; z-index:1; display:flex; flex-direction:column;
+           height:100dvh; max-width:720px; margin:0 auto; padding:0 20px; }
+
+  header { display:flex; align-items:center; justify-content:space-between;
+           padding:22px 4px 14px; background:none; }
+  .mark { font-size:21px; font-weight:500; letter-spacing:.01em;
+          text-shadow:0 1px 14px rgba(0,0,0,.3); }
+  .mark span { display:inline-block; margin-left:5px; width:6px; height:6px;
+               border-radius:50%; background:currentColor;
+               animation:pulse 5s var(--ease) infinite; }
+  @keyframes pulse { 0%,100%{opacity:.28;transform:scale(.85)} 50%{opacity:1;transform:scale(1)} }
+
+  /* 玻璃面板：blur 保持克制，它比 canvas 更容易拖垮帧率 */
+  .lg {
+    background: var(--glass);
+    backdrop-filter: blur(16px) saturate(1.6) brightness(1.06);
+    -webkit-backdrop-filter: blur(16px) saturate(1.6) brightness(1.06);
+    border: .5px solid var(--edge);
+    box-shadow: inset 0 1px 0 var(--spec),
+                inset 0 -1px 0 rgba(255,255,255,.1),
+                0 8px 30px rgba(0,0,0,.2);
+  }
+
+  .gear { width:38px; height:38px; border-radius:50%; display:grid; place-items:center;
+          cursor:pointer; color:var(--ink); transition:transform .4s var(--ease); }
+  .gear:hover { transform:rotate(38deg); }
+  .gear:focus-visible { outline:2px solid var(--ink); outline-offset:3px; }
+
+  .stream { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:12px;
+            padding:8px 2px 20px; scrollbar-width:none; }
+  .stream::-webkit-scrollbar { display:none; }
+
+  .msg { max-width:78%; padding:13px 18px; font-size:17px; line-height:1.58;
+         border-radius:24px; animation:rise .55s var(--ease) both; }
+  @keyframes rise { from{opacity:0;transform:translateY(10px) scale(.98)} }
+  .msg.ai { align-self:flex-start; border-bottom-left-radius:9px; }
+  .msg.me { align-self:flex-end; border-bottom-right-radius:9px; background:var(--glass-2); }
+
+  .dots { display:flex; gap:5px; padding:4px 2px; }
+  .dots i { width:6px; height:6px; border-radius:50%; background:var(--ink-dim); animation:blink 1.3s infinite; }
+  .dots i:nth-child(2){animation-delay:.18s} .dots i:nth-child(3){animation-delay:.36s}
+  @keyframes blink { 0%,60%,100%{opacity:.25} 30%{opacity:1} }
+
+  .bar { display:flex; gap:10px; align-items:center;
+         margin-bottom:max(18px, env(safe-area-inset-bottom));
+         padding:7px 7px 7px 20px; border-radius:32px; }
+  .bar input { flex:1; border:0; background:none; outline:none; font-family:inherit;
+               font-size:17px; color:var(--ink); padding:10px 0; }
+  .bar input::placeholder { color:var(--ink-dim); }
+  .send { width:40px; height:40px; flex:none; border:0; border-radius:50%; display:grid;
+          place-items:center; cursor:pointer; color:var(--ink);
+          background:rgba(255,255,255,.2);
+          backdrop-filter:blur(8px) brightness(1.3);
+          -webkit-backdrop-filter:blur(8px) brightness(1.3);
+          box-shadow:inset 0 1px 0 var(--spec); transition:transform .3s var(--ease); }
+  .send:active { transform:scale(.9); }
+  .send:focus-visible { outline:2px solid var(--ink); outline-offset:3px; }
+
+  .sheet { position:fixed; inset:0; z-index:5; display:grid; place-items:center;
+           background:rgba(0,0,0,.22); opacity:0; pointer-events:none;
+           transition:opacity .35s var(--ease); }
+  .sheet[data-open="1"] { opacity:1; pointer-events:auto; }
+  .panel { width:min(340px,86vw); padding:26px 24px; border-radius:34px;
+           transform:scale(.94); transition:transform .35s var(--ease); }
+  .sheet[data-open="1"] .panel { transform:scale(1); }
+  .panel h2 { margin:0 0 20px; font-size:15px; font-weight:500; color:var(--ink-dim); }
+  .row { display:flex; align-items:center; justify-content:space-between; }
+  .row label { font-size:17px; }
+
+  .toggle { width:54px; height:32px; border-radius:16px; cursor:pointer; position:relative;
+            background:rgba(255,255,255,.14); border:.5px solid var(--edge); }
+  .knob { position:absolute; top:3px; left:3px; width:25px; height:25px; border-radius:50%;
+          background:var(--ink); transition:transform .42s var(--ease); }
+  .toggle[aria-checked="true"] .knob { transform:translateX(22px); }
+  .toggle:focus-visible { outline:2px solid var(--ink); outline-offset:3px; }
+
+  .hint { margin:22px 0 0; font-size:13px; line-height:1.6; color:var(--ink-dim); }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,*::before,*::after { animation-duration:.01ms !important; transition-duration:.01ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="field" aria-hidden="true"></canvas>
+
+<div class="shell">
+  <header>
+    <div class="mark">Worcon<span></span></div>
+    <button class="gear lg" id="gear" aria-label="设置">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+        <circle cx="12" cy="12" r="3.2"/>
+        <path d="M12 2.5v2M12 19.5v2M21.5 12h-2M4.5 12h-2M18.7 5.3l-1.4 1.4M6.7 17.3l-1.4 1.4M18.7 18.7l-1.4-1.4M6.7 6.7L5.3 5.3"/>
+      </svg>
+    </button>
+  </header>
+
+  <div class="stream" id="stream"></div>
+
+  <div class="bar lg">
+    <input id="input" placeholder="随便说点什么" autocomplete="off">
+    <button class="send" id="send" aria-label="发送">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 19V5M5 12l7-7 7 7"/>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<div class="sheet" id="sheet">
+  <div class="panel lg">
+    <h2>设置</h2>
+    <div class="row">
+      <label for="tgTheme">浅色背景</label>
+      <button class="toggle" id="tgTheme" role="switch" aria-checked="false" aria-label="浅色背景"><span class="knob"></span></button>
+    </div>
+    <p class="hint">聊得越久，背后的花开得越满。</p>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   背景全部交给 GPU。
+   光场、叶序排列、呼吸、折射、色散 —— 都在着色器里算，
+   CPU 每帧只传几个数字。所以 120fps 是轻松的。
+   ═══════════════════════════════════════════════════════════ */
+
+const cv = document.getElementById('field');
+const gl = cv.getContext('webgl', {alpha:false, antialias:true, powerPreference:'high-performance'})
+        || cv.getContext('experimental-webgl', {alpha:false});
+
+/* ── 可调参数 ───────────────────────────── */
+const N        = 240;    // 珠子上限
+const BREATH_W = 11.0;   // 呼吸周期（秒）
+const BREATH_A = 0.15;   // 呼吸幅度
+const WAVE     = 0.42;   // 从花心向外传播的延迟
+const LENS_K   = 1.05;   // 折射强度：越大边缘挤压越狠
+const CHROMA   = 0.045;  // 色散强度
+const FLOW_SPD = 3.4;    // 光场流动速度：大了乱，小了像静止
+
+/* 光场：茶苗青绿 × 浅雾蓝（HSL → RGB）*/
+const BLOBS = [
+  { h:142, s:.46, l:.54, ox:.24, oy:.28, fx:.082, fy:.061, px:0,   py:1.7, r:.68, amp:.30 },
+  { h:204, s:.36, l:.60, ox:.74, oy:.30, fx:.054, fy:.093, px:2.1, py:.4,  r:.66, amp:.30 },
+  { h:162, s:.42, l:.50, ox:.54, oy:.72, fx:.058, fy:.089, px:4.0, py:2.9, r:.62, amp:.30 },
+  { h:196, s:.30, l:.52, ox:.22, oy:.76, fx:.096, fy:.063, px:1.2, py:5.1, r:.58, amp:.36 },
+];
+function hsl2rgb(h,s,l){
+  h/=360; const q = l < .5 ? l*(1+s) : l+s-l*s, p = 2*l-q;
+  const f = t => { t=(t+1)%1;
+    if (t < 1/6) return p+(q-p)*6*t;
+    if (t < 1/2) return q;
+    if (t < 2/3) return p+(q-p)*(2/3-t)*6;
+    return p; };
+  return [f(h+1/3), f(h), f(h-1/3)];
+}
+const BLOB_RGB = BLOBS.map(b => hsl2rgb(b.h, b.s, b.l));
+
+/* ── 着色器 ─────────────────────────────── */
+const COMMON = `
+precision highp float;
+uniform vec2  uRes;
+uniform float uLight;
+uniform vec2  uBlobP[4];
+uniform float uBlobR[4];
+uniform vec3  uBlobC[4];
+
+float hash(vec2 p){
+  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
+
+// 光场：四团缓慢漂移的颜色 + 噪点 + 压暗四角
+vec3 field(vec2 p){
+  vec3 base = mix(vec3(0.020,0.035,0.043), vec3(0.769,0.827,0.808), uLight);
+  vec3 col  = base;
+  float strength = mix(0.60, 0.52, uLight);
+
+  for (int i = 0; i < 4; i++){
+    float d = distance(p, uBlobP[i]) / uBlobR[i];
+    float w = pow(max(0.0, 1.0 - d), 2.2) * strength;
+    // 深色相加发光，浅色相乘成雾
+    col += (1.0 - uLight) * uBlobC[i] * w;
+    col *= mix(vec3(1.0), mix(vec3(1.0), uBlobC[i], w), uLight);
+  }
+
+  float n = hash(floor(p * 0.9));
+  col += (n - 0.5) * mix(0.085, 0.05, uLight);
+
+  float v = distance(p, vec2(uRes.x*0.5, uRes.y*0.44)) / (max(uRes.x,uRes.y)*0.80);
+  col *= 1.0 - smoothstep(0.28, 1.0, v) * mix(0.62, 0.34, uLight);
+  return col;
+}
+`;
+
+const VS_BG = `
+attribute vec2 aPos;
+void main(){ gl_Position = vec4(aPos, 0.0, 1.0); }
+`;
+const FS_BG = COMMON + `
+void main(){
+  vec2 p = vec2(gl_FragCoord.x, uRes.y - gl_FragCoord.y);
+  gl_FragColor = vec4(field(p), 1.0);
+}
+`;
+
+const VS_BEAD = `
+precision highp float;
+attribute float aIndex;
+attribute vec2  aCorner;
+uniform vec2  uRes;
+uniform float uSec;
+uniform float uBloom;
+uniform float uCap;
+uniform float uBreathW, uBreathA, uWave;
+
+varying vec2  vLocal;
+varying vec2  vCenter;
+varying float vR, vAlpha, vShine;
+
+float breathe(float p){
+  float s = sin(p);
+  return sign(s) * pow(abs(s), 0.72);
+}
+
+void main(){
+  float i    = aIndex;
+  float dist = sqrt(i);
+  float b    = breathe(uSec * (6.2831853 / uBreathW) - dist * uWave);
+
+  float ang  = i * 2.39996323 + uSec * 0.017;
+  float scale = min(uRes.x, uRes.y) * 0.056;
+  float rad  = scale * dist * 0.88 * (1.0 + b * uBreathA);
+
+  vec2 c = vec2(uRes.x * 0.5 + cos(ang) * rad,
+                uRes.y * 0.43 + sin(ang) * rad * 0.88);
+
+  float edge = 1.0 - i / uCap;
+  float soft = clamp((uBloom - i) / 10.0, 0.0, 1.0);
+  float r    = (7.2 + dist * 0.62) * (0.58 + edge * 0.42) * (1.0 + b * 0.14);
+
+  vCenter = c;
+  vR      = r;
+  vLocal  = aCorner;
+  vAlpha  = min(1.0, edge * soft * 1.1) * step(0.001, soft);
+  vShine  = 0.72 + b * 0.28;
+
+  vec2 pos = c + aCorner * r;
+  vec2 ndc = vec2(pos.x / uRes.x * 2.0 - 1.0, 1.0 - pos.y / uRes.y * 2.0);
+  gl_Position = vec4(ndc, 0.0, 1.0);
+}
+`;
+
+const FS_BEAD = COMMON + `
+uniform float uK, uChroma, uDPR;
+varying vec2  vLocal;
+varying vec2  vCenter;
+varying float vR, vAlpha, vShine;
+
+// 目标半径 → 源半径。中心几乎不变，边缘挤压极狠 —— 这就是玻璃。
+float lens(float u, float k){ return u / (1.0 + k * u * u); }
+
+void main(){
+  float u = length(vLocal);
+  if (u > 1.0 || vAlpha <= 0.0) discard;
+
+  vec2 dir = u > 0.0001 ? vLocal / u : vec2(0.0);
+
+  // 逐通道取不同折射率 = 真实的色散
+  vec3 c;
+  c.r = field(vCenter + dir * lens(u, uK * (1.0 - uChroma)) * vR).r;
+  c.g = field(vCenter + dir * lens(u, uK)                   * vR).g;
+  c.b = field(vCenter + dir * lens(u, uK * (1.0 + uChroma)) * vR).b;
+
+  // 边缘那圈亮光：左上亮、右下淡
+  float s   = 0.5 - 0.5 * dot(dir, vec2(-0.7071, -0.7071));
+  float lit = mix(1.0, 0.16, smoothstep(0.0, 0.45, s));
+  lit = mix(lit, 0.05, smoothstep(0.45, 0.68, s));
+  lit = mix(lit, 0.45, smoothstep(0.68, 1.0, s));
+  float pxb  = 1.0 / max(1.0, vR * uDPR);
+  float band = smoothstep(0.93, 0.985, u) * (1.0 - smoothstep(0.985, 1.0 - pxb*0.2, u));
+  float rim  = mix(0.50, 0.95, uLight) * vShine * lit * band * 2.2;
+
+  c += rim;
+
+  // 边缘抗锯齿：按这颗珠子在屏幕上的实际半径算出"一个像素有多宽"
+  float px = 1.0 / max(1.0, vR * uDPR);
+  float aa = 1.0 - smoothstep(1.0 - px * 1.6, 1.0, u);
+  gl_FragColor = vec4(c, vAlpha * aa);
+}
+`;
+
+/* ── 编译 ── */
+function sh(type, src){
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(s), src);
+  return s;
+}
+function prog(vs, fs){
+  const p = gl.createProgram();
+  gl.attachShader(p, sh(gl.VERTEX_SHADER, vs));
+  gl.attachShader(p, sh(gl.FRAGMENT_SHADER, fs));
+  gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) console.error(gl.getProgramInfoLog(p));
+  return p;
+}
+const pBg   = prog(VS_BG,   FS_BG);
+const pBead = prog(VS_BEAD, FS_BEAD);
+
+/* 全屏三角形 */
+const bufBg = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, bufBg);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
+
+/* 珠子：静态几何，一次上传，之后每帧只改 uniform */
+const idx = [], corner = [];
+const QUAD = [[-1,-1],[1,-1],[1,1],[-1,-1],[1,1],[-1,1]];
+for (let i = 0; i < N; i++)
+  for (const q of QUAD){ idx.push(i); corner.push(q[0], q[1]); }
+const bufIdx = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, bufIdx);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(idx), gl.STATIC_DRAW);
+const bufCor = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, bufCor);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(corner), gl.STATIC_DRAW);
+
+gl.enable(gl.BLEND);
+gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+let W, H;
+function size(){
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  W = innerWidth; H = innerHeight;
+  cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+  cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  gl.viewport(0, 0, cv.width, cv.height);
+}
+size(); addEventListener('resize', size);
+
+let BREATH_NOW = 0;
+const CAP = 240;
+let bloom = 0, target = 150;
+const isLight = () => document.documentElement.dataset.theme === 'light';
+
+function setCommon(p, now){
+  gl.uniform2f(gl.getUniformLocation(p, 'uRes'), W, H);
+  gl.uniform1f(gl.getUniformLocation(p, 'uLight'), isLight() ? 1 : 0);
+  const P = [], R = [], C = [];
+  for (let i = 0; i < 4; i++){
+    const b = BLOBS[i];
+    P.push(W * (b.ox + Math.sin(now * b.fx + b.px) * b.amp),
+           H * (b.oy + Math.cos(now * b.fy + b.py) * b.amp * .8));
+    R.push(Math.max(W, H) * b.r * (1 + Math.sin(now * b.fx * .6) * .10 + BREATH_NOW * .09));
+    C.push(...BLOB_RGB[i]);
+  }
+  gl.uniform2fv(gl.getUniformLocation(p, 'uBlobP'), new Float32Array(P));
+  gl.uniform1fv(gl.getUniformLocation(p, 'uBlobR'), new Float32Array(R));
+  gl.uniform3fv(gl.getUniformLocation(p, 'uBlobC'), new Float32Array(C));
+}
+
+/* 呼吸驱动光场：吸气时光流得快，呼气时慢下来。
+   两者同频，整个画面就有了一致的节奏。 */
+function breatheJS(p){ const s = Math.sin(p); return Math.sign(s)*Math.pow(Math.abs(s),0.72); }
+let flow = 0;
+
+let sec = 0, last = 0;
+function frame(t){
+  requestAnimationFrame(frame);
+  if (!last) last = t;
+  const dt = Math.min(.1, (t - last) / 1000);
+  last = t; sec += dt;
+  bloom += (target - bloom) * Math.min(1, dt * 0.7);
+
+  // 中心那颗的呼吸值 → 光场的流速
+  const bC = breatheJS(sec * (Math.PI*2 / BREATH_W));
+  flow += dt * (0.45 + 0.95 * (bC * 0.5 + 0.5));
+  const now = flow * FLOW_SPD;
+  BREATH_NOW = bC;
+
+  // 背景
+  gl.useProgram(pBg);
+  setCommon(pBg, now);
+  gl.bindBuffer(gl.ARRAY_BUFFER, bufBg);
+  const aPos = gl.getAttribLocation(pBg, 'aPos');
+  gl.enableVertexAttribArray(aPos);
+  gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  gl.disableVertexAttribArray(aPos);
+
+  // 珠子
+  gl.useProgram(pBead);
+  setCommon(pBead, now);
+  gl.uniform1f(gl.getUniformLocation(pBead, 'uSec'),     sec);
+  gl.uniform1f(gl.getUniformLocation(pBead, 'uBloom'),   bloom);
+  gl.uniform1f(gl.getUniformLocation(pBead, 'uCap'),     CAP);
+  gl.uniform1f(gl.getUniformLocation(pBead, 'uBreathW'), BREATH_W);
+  gl.uniform1f(gl.getUniformLocation(pBead, 'uBreathA'), BREATH_A);
+  gl.uniform1f(gl.getUniformLocation(pBead, 'uWave'),    WAVE);
+  gl.uniform1f(gl.getUniformLocation(pBead, 'uK'),       LENS_K);
+  gl.uniform1f(gl.getUniformLocation(pBead, 'uChroma'),  CHROMA);
+  gl.uniform1f(gl.getUniformLocation(pBead, 'uDPR'),     Math.min(devicePixelRatio || 1, 2));
+
+  const aI = gl.getAttribLocation(pBead, 'aIndex');
+  const aC = gl.getAttribLocation(pBead, 'aCorner');
+  gl.bindBuffer(gl.ARRAY_BUFFER, bufIdx);
+  gl.enableVertexAttribArray(aI); gl.vertexAttribPointer(aI, 1, gl.FLOAT, false, 0, 0);
+  gl.bindBuffer(gl.ARRAY_BUFFER, bufCor);
+  gl.enableVertexAttribArray(aC); gl.vertexAttribPointer(aC, 2, gl.FLOAT, false, 0, 0);
+  gl.drawArrays(gl.TRIANGLES, 0, N * 6);
+  gl.disableVertexAttribArray(aI); gl.disableVertexAttribArray(aC);
+}
+requestAnimationFrame(frame);
+
+/* ── 设置 ── */
+const root = document.documentElement;
+const sheet = document.getElementById('sheet');
+const tgTheme = document.getElementById('tgTheme');
+
+document.getElementById('gear').onclick = () => sheet.dataset.open = '1';
+sheet.onclick = e => { if (e.target === sheet) sheet.dataset.open = '0'; };
+tgTheme.onclick = () => {
+  const light = isLight();
+  root.dataset.theme = light ? 'dark' : 'light';
+  document.body.style.background = light ? '#05090B' : '#C4D3CE';
+  tgTheme.setAttribute('aria-checked', String(!light));
+};
+
+/* ── 对话（演示回复；接进项目时换成真实 API）── */
+const stream = document.getElementById('stream');
+const input  = document.getElementById('input');
+
+function say(text, who){
+  const d = document.createElement('div');
+  d.className = 'msg lg ' + who; d.textContent = text;
+  stream.appendChild(d); stream.scrollTop = stream.scrollHeight;
+}
+const demo = ['欸，来了。今天咋样',
+              '还行是还行，还是那种"其实不太行但懒得说"的还行 🤔',
+              '那先不管为什么。就说说今天最烦的那一件',
+              '……我是不是问太急了',
+              '我在'];
+let k = 0;
+say(demo[k++], 'ai');
+
+document.getElementById('send').onclick = send;
+input.onkeydown = e => { if (e.key === 'Enter') send(); };
+
+function send(){
+  const v = input.value.trim(); if (!v) return;
+  say(v,'me'); input.value = '';
+  target = Math.min(CAP, target + 20);
+
+  const wait = document.createElement('div');
+  wait.className = 'msg lg ai';
+  wait.innerHTML = '<div class="dots"><i></i><i></i><i></i></div>';
+  stream.appendChild(wait); stream.scrollTop = stream.scrollHeight;
+
+  setTimeout(() => { wait.remove(); say(demo[k++ % demo.length], 'ai'); target = Math.min(CAP, target + 14); }, 900);
+}
+</script>
+</body>
+</html>

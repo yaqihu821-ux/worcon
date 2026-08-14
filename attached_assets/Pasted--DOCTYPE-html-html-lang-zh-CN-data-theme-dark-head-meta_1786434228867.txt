@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Worcon</title>
+<style>
+  :root {
+    --font-round: ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN",
+                  "PingFang SC", "Quicksand", system-ui, sans-serif;
+    --ease: cubic-bezier(.22,.61,.36,1);
+  }
+
+  /* 深色：夜里的水面 */
+  html[data-theme="dark"] {
+    --bg-0:   #07080B;
+    --bg-1:   #0E1016;
+    --seed:   255,255,255;
+    --ink:    #F2F3F5;
+    --ink-dim:#8A8F9A;
+    --glass:  rgba(255,255,255,.07);
+    --glass-2:rgba(255,255,255,.13);
+    --edge:   rgba(255,255,255,.16);
+    --spec:   rgba(255,255,255,.42);
+    --seed-a: .95;
+  }
+  /* 浅色：纸上的水滴 */
+  html[data-theme="light"] {
+    --bg-0:   #EEF0F3;
+    --bg-1:   #E2E6EC;
+    --seed:   255,255,255;
+    --ink:    #14161A;
+    --ink-dim:#6C727C;
+    --glass:  rgba(255,255,255,.55);
+    --glass-2:rgba(255,255,255,.72);
+    --edge:   rgba(255,255,255,.9);
+    --spec:   rgba(255,255,255,.95);
+    --seed-a: 1;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  body {
+    margin: 0;
+    min-height: 100dvh;
+    font-family: var(--font-round);
+    color: var(--ink);
+    background: radial-gradient(120% 90% at 50% 0%, var(--bg-1), var(--bg-0) 70%);
+    overflow: hidden;
+    transition: background .8s var(--ease), color .5s var(--ease);
+  }
+
+  /* ── 签名元素：向日葵水滴场 ────────────────── */
+  #field {
+    position: fixed; inset: 0;
+    width: 100%; height: 100%;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  /* ── 外壳 ──────────────────────────────── */
+  .shell {
+    position: relative; z-index: 1;
+    display: flex; flex-direction: column;
+    height: 100dvh;
+    max-width: 720px; margin: 0 auto;
+    padding: 0 20px;
+  }
+
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 22px 4px 14px;
+  }
+  .mark {
+    font-size: 21px;
+    font-weight: 500;
+    letter-spacing: .01em;
+    color: var(--ink);
+  }
+  .mark span {                 /* 呼吸的句点 */
+    display: inline-block; margin-left: 5px;
+    width: 6px; height: 6px; border-radius: 50%;
+    background: currentColor;
+    animation: pulse 4.5s var(--ease) infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:.28; transform:scale(.85)} 50%{opacity:1; transform:scale(1)} }
+
+  .gear {
+    width: 38px; height: 38px; border: 0; border-radius: 50%;
+    display: grid; place-items: center; cursor: pointer;
+    color: var(--ink-dim);
+    background: var(--glass);
+    backdrop-filter: blur(18px) saturate(1.7);
+    -webkit-backdrop-filter: blur(18px) saturate(1.7);
+    box-shadow: inset 0 .5px 0 var(--spec), 0 1px 6px rgba(0,0,0,.14);
+    transition: color .3s, transform .4s var(--ease);
+  }
+  .gear:hover { color: var(--ink); transform: rotate(38deg); }
+  .gear:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+
+  /* ── 对话流 ─────────────────────────────── */
+  .stream {
+    flex: 1; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 12px;
+    padding: 8px 2px 20px;
+    scrollbar-width: none;
+  }
+  .stream::-webkit-scrollbar { display: none; }
+
+  .msg {
+    max-width: 78%;
+    padding: 13px 18px;
+    font-size: 17px; line-height: 1.58;
+    border-radius: 22px;
+    animation: rise .55s var(--ease) both;
+  }
+  @keyframes rise { from { opacity:0; transform: translateY(10px) scale(.98) } }
+
+  .msg.ai {
+    align-self: flex-start;
+    border-bottom-left-radius: 8px;
+    color: var(--ink);
+    background: var(--glass);
+    backdrop-filter: blur(26px) saturate(1.8);
+    -webkit-backdrop-filter: blur(26px) saturate(1.8);
+    border: .5px solid var(--edge);
+    box-shadow: inset 0 1px 0 var(--spec), 0 6px 22px rgba(0,0,0,.16);
+  }
+  .msg.me {
+    align-self: flex-end;
+    border-bottom-right-radius: 8px;
+    color: var(--ink);
+    background: var(--glass-2);
+    backdrop-filter: blur(26px) saturate(2);
+    -webkit-backdrop-filter: blur(26px) saturate(2);
+    border: .5px solid var(--edge);
+    box-shadow: inset 0 1px 0 var(--spec), 0 6px 22px rgba(0,0,0,.12);
+  }
+
+  /* 打字中 */
+  .dots { display: flex; gap: 5px; padding: 4px 2px; }
+  .dots i {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--ink-dim);
+    animation: blink 1.3s infinite;
+  }
+  .dots i:nth-child(2){ animation-delay:.18s } .dots i:nth-child(3){ animation-delay:.36s }
+  @keyframes blink { 0%,60%,100%{opacity:.25} 30%{opacity:1} }
+
+  /* ── 输入 ──────────────────────────────── */
+  .bar {
+    display: flex; gap: 10px; align-items: center;
+    margin-bottom: max(18px, env(safe-area-inset-bottom));
+    padding: 7px 7px 7px 20px;
+    border-radius: 30px;
+    background: var(--glass);
+    backdrop-filter: blur(30px) saturate(1.9);
+    -webkit-backdrop-filter: blur(30px) saturate(1.9);
+    border: .5px solid var(--edge);
+    box-shadow: inset 0 1px 0 var(--spec), 0 10px 34px rgba(0,0,0,.2);
+  }
+  .bar input {
+    flex: 1; border: 0; background: none; outline: none;
+    font-family: inherit; font-size: 17px; color: var(--ink);
+    padding: 10px 0;
+  }
+  .bar input::placeholder { color: var(--ink-dim); }
+  .send {
+    width: 40px; height: 40px; flex: none; border: 0; border-radius: 50%;
+    display: grid; place-items: center; cursor: pointer;
+    color: var(--bg-0); background: var(--ink);
+    transition: transform .3s var(--ease), opacity .3s;
+  }
+  .send:active { transform: scale(.9); }
+  .send:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+
+  /* ── 设置 ──────────────────────────────── */
+  .sheet {
+    position: fixed; inset: 0; z-index: 5;
+    display: grid; place-items: center;
+    background: rgba(0,0,0,.32);
+    backdrop-filter: blur(4px);
+    opacity: 0; pointer-events: none;
+    transition: opacity .35s var(--ease);
+  }
+  .sheet[data-open="1"] { opacity: 1; pointer-events: auto; }
+  .panel {
+    width: min(340px, 86vw);
+    padding: 26px 24px;
+    border-radius: 30px;
+    background: var(--glass-2);
+    backdrop-filter: blur(40px) saturate(2);
+    -webkit-backdrop-filter: blur(40px) saturate(2);
+    border: .5px solid var(--edge);
+    box-shadow: inset 0 1px 0 var(--spec), 0 24px 60px rgba(0,0,0,.34);
+    transform: scale(.94); transition: transform .35s var(--ease);
+  }
+  .sheet[data-open="1"] .panel { transform: scale(1); }
+  .panel h2 { margin: 0 0 20px; font-size: 15px; font-weight: 500; color: var(--ink-dim); }
+  .row { display: flex; align-items: center; justify-content: space-between; }
+  .row label { font-size: 17px; }
+
+  .toggle {
+    width: 54px; height: 32px; border: 0; border-radius: 16px; cursor: pointer;
+    background: var(--glass); border: .5px solid var(--edge);
+    position: relative; transition: background .4s;
+  }
+  .knob {
+    position: absolute; top: 3px; left: 3px;
+    width: 25px; height: 25px; border-radius: 50%;
+    background: var(--ink);
+    transition: transform .42s var(--ease);
+  }
+  html[data-theme="light"] .knob { transform: translateX(22px); }
+  .toggle:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+
+  .hint { margin: 22px 0 0; font-size: 13px; line-height: 1.6; color: var(--ink-dim); }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="field" aria-hidden="true"></canvas>
+
+<div class="shell">
+  <header>
+    <div class="mark">Worcon<span></span></div>
+    <button class="gear" id="gear" aria-label="设置">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+        <circle cx="12" cy="12" r="3.2"/>
+        <path d="M12 2.5v2M12 19.5v2M21.5 12h-2M4.5 12h-2M18.7 5.3l-1.4 1.4M6.7 17.3l-1.4 1.4M18.7 18.7l-1.4-1.4M6.7 6.7L5.3 5.3"/>
+      </svg>
+    </button>
+  </header>
+
+  <div class="stream" id="stream"></div>
+
+  <div class="bar">
+    <input id="input" placeholder="随便说点什么" autocomplete="off">
+    <button class="send" id="send" aria-label="发送">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 19V5M5 12l7-7 7 7"/>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<div class="sheet" id="sheet">
+  <div class="panel">
+    <h2>设置</h2>
+    <div class="row">
+      <label for="tg">浅色背景</label>
+      <button class="toggle" id="tg" role="switch" aria-checked="false" aria-label="浅色背景">
+        <span class="knob"></span>
+      </button>
+    </div>
+    <p class="hint">聊得越久，背后的花开得越满。</p>
+  </div>
+</div>
+
+<script>
+/* ══ 签名元素 ══════════════════════════════════════
+   向日葵排列（叶序 / phyllotaxis）：第 n 颗种子的角度
+   是黄金角 137.5° 的 n 倍，半径是 √n。自然界里向日葵、
+   松果、菠萝都长这样。每完成一轮问答，花心多开一圈。
+   ══════════════════════════════════════════════ */
+
+const cv = document.getElementById('field');
+const ctx = cv.getContext('2d');
+const GOLD = Math.PI * (3 - Math.sqrt(5));   // 黄金角 ≈ 137.5°
+
+let W, H, DPR;
+function size(){
+  DPR = Math.min(devicePixelRatio || 1, 2);
+  W = innerWidth; H = innerHeight;
+  cv.width = W * DPR; cv.height = H * DPR;
+  cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+size();
+addEventListener('resize', size);
+
+let bloom = 0;        // 当前实际绽放量
+let target = 26;      // 目标绽放量（随对话增长）
+const CAP = 320;
+
+/* 一颗水滴：尖端朝向花心外侧 */
+function drop(x, y, r, rot, alpha){
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(rot);
+  ctx.beginPath();
+  ctx.moveTo(0, -r * 1.75);                          // 尖
+  ctx.bezierCurveTo( r * 1.05, -r * .5,  r, r * .62, 0, r);   // 右腹
+  ctx.bezierCurveTo(-r, r * .62, -r * 1.05, -r * .5, 0, -r * 1.75); // 左腹
+  ctx.closePath();
+  const seed = getComputedStyle(document.documentElement).getPropertyValue('--seed').trim();
+  const a = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--seed-a'));
+  const g = ctx.createLinearGradient(0, -r * 1.75, 0, r);
+  g.addColorStop(0, `rgba(${seed},${alpha * a})`);
+  g.addColorStop(1, `rgba(${seed},${alpha * a * .35})`);
+  ctx.fillStyle = g;
+  ctx.fill();
+  ctx.restore();
+}
+
+let t = 0;
+function frame(){
+  t += 0.0016;
+  bloom += (target - bloom) * 0.022;              // 缓缓散开
+
+  ctx.clearRect(0, 0, W, H);
+  const cx = W / 2, cy = H * 0.44;
+  const scale = Math.min(W, H) * 0.052;
+  const n = Math.ceil(bloom);
+
+  for (let i = 0; i < n; i++){
+    const ang = i * GOLD + t;                     // 极慢自转
+    const rad = scale * Math.sqrt(i) * 0.92;
+    const x = cx + Math.cos(ang) * rad;
+    const y = cy + Math.sin(ang) * rad * 0.86;    // 轻微压扁，像看向水面
+    if (x < -60 || x > W + 60 || y < -60 || y > H + 60) continue;
+
+    const edge = 1 - i / CAP;                     // 外圈更淡
+    const soft = Math.min(1, (bloom - i) / 6);    // 新种子淡入
+    const r = (3.4 + Math.sqrt(i) * .42) * (.5 + edge * .5);
+    drop(x, y, r, ang + Math.PI / 2, 0.30 * edge * soft);
+  }
+  requestAnimationFrame(frame);
+}
+
+if (!matchMedia('(prefers-reduced-motion: reduce)').matches) frame();
+else { bloom = target; ctx.clearRect(0,0,W,H); }
+
+/* ══ 主题 ══════════════════════════════════════ */
+const root  = document.documentElement;
+const sheet = document.getElementById('sheet');
+const tg    = document.getElementById('tg');
+
+document.getElementById('gear').onclick = () => sheet.dataset.open = '1';
+sheet.onclick = e => { if (e.target === sheet) sheet.dataset.open = '0'; };
+tg.onclick = () => {
+  const light = root.dataset.theme === 'light';
+  root.dataset.theme = light ? 'dark' : 'light';
+  tg.setAttribute('aria-checked', String(!light));
+};
+
+/* ══ 对话（这里是演示回复；接进项目时换成 API）══ */
+const stream = document.getElementById('stream');
+const input  = document.getElementById('input');
+
+function say(text, who){
+  const d = document.createElement('div');
+  d.className = 'msg ' + who;
+  d.textContent = text;
+  stream.appendChild(d);
+  stream.scrollTop = stream.scrollHeight;
+}
+
+const demo = [
+  '欸，来了。今天咋样',
+  '还行是还行，还是那种"其实不太行但懒得说"的还行 🤔',
+  '那先不管为什么。就说说今天最烦的那一件',
+  '……我是不是问太急了',
+  '我在'
+];
+let k = 0;
+say(demo[k++], 'ai');
+
+document.getElementById('send').onclick = send;
+input.onkeydown = e => { if (e.key === 'Enter') send(); };
+
+function send(){
+  const v = input.value.trim();
+  if (!v) return;
+  say(v, 'me');
+  input.value = '';
+  target = Math.min(CAP, target + 22);            // 花开一圈
+
+  const wait = document.createElement('div');
+  wait.className = 'msg ai';
+  wait.innerHTML = '<div class="dots"><i></i><i></i><i></i></div>';
+  stream.appendChild(wait);
+  stream.scrollTop = stream.scrollHeight;
+
+  setTimeout(() => {
+    wait.remove();
+    say(demo[k++ % demo.length], 'ai');
+    target = Math.min(CAP, target + 16);
+  }, 900);
+}
+</script>
+</body>
+</html>

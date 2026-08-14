@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Worcon</title>
+<style>
+  :root {
+    --font-round: ui-rounded, "SF Pro Rounded", "Hiragino Maru Gothic ProN",
+                  "PingFang SC", "Quicksand", system-ui, sans-serif;
+    --ease: cubic-bezier(.22,.61,.36,1);
+  }
+  html[data-theme="dark"] {
+    --bg-0:#06070A; --bg-1:#0D0F15;
+    --ink:#F2F3F5; --ink-dim:#878C96;
+    --glass:rgba(255,255,255,.07); --glass-2:rgba(255,255,255,.13);
+    --edge:rgba(255,255,255,.16); --spec:rgba(255,255,255,.42);
+    --petal:.34;
+  }
+  html[data-theme="light"] {
+    --bg-0:#EDEFF3; --bg-1:#E0E4EA;
+    --ink:#14161A; --ink-dim:#6C727C;
+    --glass:rgba(255,255,255,.55); --glass-2:rgba(255,255,255,.75);
+    --edge:rgba(255,255,255,.9); --spec:rgba(255,255,255,.95);
+    --petal:.85;
+  }
+
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body {
+    margin:0; min-height:100dvh; overflow:hidden;
+    font-family:var(--font-round); color:var(--ink);
+    background:radial-gradient(120% 90% at 50% 8%, var(--bg-1), var(--bg-0) 72%);
+    transition:background .9s var(--ease), color .5s var(--ease);
+  }
+
+  #field { position:fixed; inset:0; width:100%; height:100%; z-index:0; pointer-events:none; }
+
+  .shell { position:relative; z-index:1; display:flex; flex-direction:column;
+           height:100dvh; max-width:720px; margin:0 auto; padding:0 20px; }
+
+  header { display:flex; align-items:center; justify-content:space-between; padding:22px 4px 14px; }
+  .mark { font-size:21px; font-weight:500; letter-spacing:.01em; }
+  .mark span { display:inline-block; margin-left:5px; width:6px; height:6px;
+               border-radius:50%; background:currentColor;
+               animation:pulse 5s var(--ease) infinite; }
+  @keyframes pulse { 0%,100%{opacity:.28;transform:scale(.85)} 50%{opacity:1;transform:scale(1)} }
+
+  .gear { width:38px; height:38px; border:0; border-radius:50%; display:grid; place-items:center;
+          cursor:pointer; color:var(--ink-dim); background:var(--glass);
+          backdrop-filter:blur(18px) saturate(1.7); -webkit-backdrop-filter:blur(18px) saturate(1.7);
+          box-shadow:inset 0 .5px 0 var(--spec), 0 1px 6px rgba(0,0,0,.14);
+          transition:color .3s, transform .4s var(--ease); }
+  .gear:hover { color:var(--ink); transform:rotate(38deg); }
+  .gear:focus-visible { outline:2px solid var(--ink); outline-offset:3px; }
+
+  .stream { flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:12px;
+            padding:8px 2px 20px; scrollbar-width:none; }
+  .stream::-webkit-scrollbar { display:none; }
+
+  .msg { max-width:78%; padding:13px 18px; font-size:17px; line-height:1.58;
+         border-radius:22px; animation:rise .55s var(--ease) both; }
+  @keyframes rise { from{opacity:0;transform:translateY(10px) scale(.98)} }
+  .msg.ai { align-self:flex-start; border-bottom-left-radius:8px; background:var(--glass);
+            backdrop-filter:blur(26px) saturate(1.8); -webkit-backdrop-filter:blur(26px) saturate(1.8);
+            border:.5px solid var(--edge);
+            box-shadow:inset 0 1px 0 var(--spec), 0 6px 22px rgba(0,0,0,.16); }
+  .msg.me { align-self:flex-end; border-bottom-right-radius:8px; background:var(--glass-2);
+            backdrop-filter:blur(26px) saturate(2); -webkit-backdrop-filter:blur(26px) saturate(2);
+            border:.5px solid var(--edge);
+            box-shadow:inset 0 1px 0 var(--spec), 0 6px 22px rgba(0,0,0,.12); }
+
+  .dots { display:flex; gap:5px; padding:4px 2px; }
+  .dots i { width:6px; height:6px; border-radius:50%; background:var(--ink-dim); animation:blink 1.3s infinite; }
+  .dots i:nth-child(2){animation-delay:.18s} .dots i:nth-child(3){animation-delay:.36s}
+  @keyframes blink { 0%,60%,100%{opacity:.25} 30%{opacity:1} }
+
+  .bar { display:flex; gap:10px; align-items:center;
+         margin-bottom:max(18px, env(safe-area-inset-bottom));
+         padding:7px 7px 7px 20px; border-radius:30px; background:var(--glass);
+         backdrop-filter:blur(30px) saturate(1.9); -webkit-backdrop-filter:blur(30px) saturate(1.9);
+         border:.5px solid var(--edge);
+         box-shadow:inset 0 1px 0 var(--spec), 0 10px 34px rgba(0,0,0,.2); }
+  .bar input { flex:1; border:0; background:none; outline:none; font-family:inherit;
+               font-size:17px; color:var(--ink); padding:10px 0; }
+  .bar input::placeholder { color:var(--ink-dim); }
+  .send { width:40px; height:40px; flex:none; border:0; border-radius:50%; display:grid;
+          place-items:center; cursor:pointer; color:var(--bg-0); background:var(--ink);
+          transition:transform .3s var(--ease); }
+  .send:active { transform:scale(.9); }
+  .send:focus-visible { outline:2px solid var(--ink); outline-offset:3px; }
+
+  .sheet { position:fixed; inset:0; z-index:5; display:grid; place-items:center;
+           background:rgba(0,0,0,.32); backdrop-filter:blur(4px);
+           opacity:0; pointer-events:none; transition:opacity .35s var(--ease); }
+  .sheet[data-open="1"] { opacity:1; pointer-events:auto; }
+  .panel { width:min(340px,86vw); padding:26px 24px; border-radius:30px; background:var(--glass-2);
+           backdrop-filter:blur(40px) saturate(2); -webkit-backdrop-filter:blur(40px) saturate(2);
+           border:.5px solid var(--edge);
+           box-shadow:inset 0 1px 0 var(--spec), 0 24px 60px rgba(0,0,0,.34);
+           transform:scale(.94); transition:transform .35s var(--ease); }
+  .sheet[data-open="1"] .panel { transform:scale(1); }
+  .panel h2 { margin:0 0 20px; font-size:15px; font-weight:500; color:var(--ink-dim); }
+  .row { display:flex; align-items:center; justify-content:space-between; }
+  .row label { font-size:17px; }
+
+  .toggle { width:54px; height:32px; border-radius:16px; cursor:pointer; position:relative;
+            background:var(--glass); border:.5px solid var(--edge); transition:background .4s; }
+  .knob { position:absolute; top:3px; left:3px; width:25px; height:25px; border-radius:50%;
+          background:var(--ink); transition:transform .42s var(--ease); }
+  .toggle[aria-checked="true"] .knob { transform:translateX(22px); }
+  .toggle:focus-visible { outline:2px solid var(--ink); outline-offset:3px; }
+
+  .hint { margin:22px 0 0; font-size:13px; line-height:1.6; color:var(--ink-dim); }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,*::before,*::after { animation-duration:.01ms !important; transition-duration:.01ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<canvas id="field" aria-hidden="true"></canvas>
+
+<div class="shell">
+  <header>
+    <div class="mark">Worcon<span></span></div>
+    <button class="gear" id="gear" aria-label="设置">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+        <circle cx="12" cy="12" r="3.2"/>
+        <path d="M12 2.5v2M12 19.5v2M21.5 12h-2M4.5 12h-2M18.7 5.3l-1.4 1.4M6.7 17.3l-1.4 1.4M18.7 18.7l-1.4-1.4M6.7 6.7L5.3 5.3"/>
+      </svg>
+    </button>
+  </header>
+
+  <div class="stream" id="stream"></div>
+
+  <div class="bar">
+    <input id="input" placeholder="随便说点什么" autocomplete="off">
+    <button class="send" id="send" aria-label="发送">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 19V5M5 12l7-7 7 7"/>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<div class="sheet" id="sheet">
+  <div class="panel">
+    <h2>设置</h2>
+    <div class="row">
+      <label for="tgTheme">浅色背景</label>
+      <button class="toggle" id="tgTheme" role="switch" aria-checked="false" aria-label="浅色背景"><span class="knob"></span></button>
+    </div>
+    <p class="hint">聊得越久，背后的花开得越满。</p>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════
+   叶序水滴场
+   第 n 颗的角度 = 黄金角 137.5° × n，半径 = √n。
+   每颗单独成形、单独淡入 —— 一颗一颗慢慢长出来。
+   ═══════════════════════════════════════════════ */
+const cv = document.getElementById('field');
+const ctx = cv.getContext('2d');
+const GOLD = Math.PI * (3 - Math.sqrt(5));
+
+let W, H, DPR;
+function size(){
+  DPR = Math.min(devicePixelRatio || 1, 2);
+  W = innerWidth; H = innerHeight;
+  cv.width = W*DPR; cv.height = H*DPR;
+  cv.style.width = W+'px'; cv.style.height = H+'px';
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+size(); addEventListener('resize', size);
+
+const CAP = 260;
+let bloom  = 0;        // 已长出的颗数
+let target = 60;       // 目标颗数
+let petalRGB = '255,255,255';
+let petalA   = .34;
+
+function readTheme(){
+  const css = getComputedStyle(document.documentElement);
+  petalA = parseFloat(css.getPropertyValue('--petal'));
+}
+readTheme();
+
+/* 一颗水滴：尖端朝外 */
+function drop(x, y, r, rot, alpha){
+  ctx.save();
+  ctx.translate(x, y); ctx.rotate(rot);
+  ctx.beginPath();
+  ctx.moveTo(0, -r*1.8);
+  ctx.bezierCurveTo( r*1.06, -r*.46,  r*.98, r*.66, 0, r);
+  ctx.bezierCurveTo(-r*.98,  r*.66, -r*1.06, -r*.46, 0, -r*1.8);
+  ctx.closePath();
+  const g = ctx.createLinearGradient(0, -r*1.8, 0, r);
+  g.addColorStop(0, `rgba(${petalRGB},${alpha})`);
+  g.addColorStop(1, `rgba(${petalRGB},${alpha*.3})`);
+  ctx.fillStyle = g; ctx.fill();
+  ctx.restore();
+}
+
+let t = 0;
+function frame(){
+  t += 0.0011;                                  // 极慢自转
+  bloom += (target - bloom) * 0.010;            // 一颗一颗地长
+  readTheme();
+
+  ctx.clearRect(0,0,W,H);
+  const cx = W/2, cy = H*0.43;
+  const breath = 1 + Math.sin(t*1.9)*0.045;     // 缓慢呼吸
+  const scale  = Math.min(W,H) * 0.075 * breath;
+  const n = Math.ceil(bloom);
+
+  for (let i=0; i<n; i++){
+    const a   = i*GOLD + t;
+    const rad = scale * Math.sqrt(i) * 0.86;
+    const x = cx + Math.cos(a)*rad;
+    const y = cy + Math.sin(a)*rad*0.88;
+
+    const edge = 1 - i/CAP;                     // 外圈更淡
+    const soft = Math.min(1, (bloom - i)/10);   // 新的一颗，慢慢淡入
+    const r = (5.5 + Math.sqrt(i)*0.72) * (.5 + edge*.5);
+    if (x < -40 || x > W+40 || y < -40 || y > H+40) continue;
+
+    drop(x, y, r, a + Math.PI/2, petalA * edge * soft * 0.55);
+  }
+  requestAnimationFrame(frame);
+}
+if (!matchMedia('(prefers-reduced-motion: reduce)').matches) frame();
+else bloom = target;
+
+/* ═══ 设置 ═══ */
+const root  = document.documentElement;
+const sheet = document.getElementById('sheet');
+const tgTheme = document.getElementById('tgTheme');
+
+document.getElementById('gear').onclick = () => sheet.dataset.open = '1';
+sheet.onclick = e => { if (e.target === sheet) sheet.dataset.open = '0'; };
+tgTheme.onclick = () => {
+  const light = root.dataset.theme === 'light';
+  root.dataset.theme = light ? 'dark' : 'light';
+  petalRGB = light ? '255,255,255' : '255,255,255';
+  tgTheme.setAttribute('aria-checked', String(!light));
+};
+
+/* ═══ 对话（演示回复；接进项目时换成真实 API）═══ */
+const stream = document.getElementById('stream');
+const input  = document.getElementById('input');
+
+function say(text, who){
+  const d = document.createElement('div');
+  d.className = 'msg ' + who; d.textContent = text;
+  stream.appendChild(d); stream.scrollTop = stream.scrollHeight;
+}
+const demo = ['欸，来了。今天咋样',
+              '还行是还行，还是那种"其实不太行但懒得说"的还行 🤔',
+              '那先不管为什么。就说说今天最烦的那一件',
+              '……我是不是问太急了',
+              '我在'];
+let k = 0;
+say(demo[k++], 'ai');
+
+document.getElementById('send').onclick = send;
+input.onkeydown = e => { if (e.key === 'Enter') send(); };
+
+function send(){
+  const v = input.value.trim(); if (!v) return;
+  say(v,'me'); input.value = '';
+  target = Math.min(CAP, target + 20);          // 每轮对话，多开一圈
+
+  const wait = document.createElement('div');
+  wait.className = 'msg ai';
+  wait.innerHTML = '<div class="dots"><i></i><i></i><i></i></div>';
+  stream.appendChild(wait); stream.scrollTop = stream.scrollHeight;
+
+  setTimeout(() => { wait.remove(); say(demo[k++ % demo.length], 'ai'); target = Math.min(CAP, target + 14); }, 900);
+}
+</script>
+</body>
+</html>

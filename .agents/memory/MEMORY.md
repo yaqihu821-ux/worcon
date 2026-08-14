@@ -1,0 +1,1 @@
+- [Worcon canvas rendering](worcon-canvas-rendering.md) — Canvas 渐变颜色使用 RGBA 更稳，设置面板需用显式隐藏状态控制。

@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Worcon</title>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@300;400;500;600&family=Playfair+Display:wght@400&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; width: 100%; background: #06060c !important; color: #f0eee8; font-family: 'Nunito', sans-serif; overflow: hidden; }
+/* Force dark background for Chrome local files */
+html { background-color: #06060c !important; }
+
+/* ── CANVAS ── */
+#bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+
+/* ── LANDING ── */
+#landing {
+position: fixed; inset: 0; z-index: 20;
+display: flex; flex-direction: column; align-items: center; justify-content: center;
+transition: opacity 1.1s ease, transform 1.1s ease;
+}
+#landing.hide { opacity: 0; transform: translateY(-32px); pointer-events: none; }
+
+.logo {
+font-family: ‘Playfair Display’, serif;
+font-size: clamp(58px, 13vw, 108px);
+letter-spacing: 0.1em; font-weight: 400;
+background: linear-gradient(160deg, #fff 25%, rgba(255,255,255,0.42));
+-webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+filter: drop-shadow(0 0 50px rgba(160,140,255,0.3));
+margin-bottom: 4px;
+}
+
+.tw-row { height: 28px; display: flex; align-items: center; margin-bottom: 64px; }
+#tw { font-size: 13px; font-weight: 400; letter-spacing: 0.1em; color: rgba(240,238,232,0.4); }
+.cur {
+display: inline-block; width: 1.5px; height: 14px;
+background: rgba(255,255,255,0.45); margin-left: 2px; vertical-align: middle;
+animation: blink 1s step-end infinite; border-radius: 2px;
+}
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+.start-btn {
+font-family: ‘Nunito’, sans-serif; font-size: 12px; font-weight: 500;
+letter-spacing: 0.2em; text-transform: uppercase;
+color: rgba(255,255,255,0.75);
+background: rgba(255,255,255,0.08);
+border: 1px solid rgba(255,255,255,0.15);
+border-radius: 100px; padding: 15px 54px; cursor: pointer;
+box-shadow: 0 2px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1);
+transition: all 0.35s;
+}
+.start-btn:hover {
+background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.25);
+color: #fff; transform: translateY(-2px);
+}
+
+/* ── CHAT VIEW ── */
+#chat { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; opacity: 0; pointer-events: none; transition: opacity 0.9s ease 0.4s; }
+#chat.show { opacity: 1; pointer-events: all; }
+
+/* header */
+.hdr {
+display: flex; align-items: center; justify-content: space-between;
+padding: 14px 20px;
+background: rgba(6,6,12,0.92);
+border-bottom: 1px solid rgba(255,255,255,0.06); flex-shrink: 0; position: relative; z-index: 2;
+}
+.hdr-left { display: flex; align-items: center; gap: 10px; }
+.hdr-logo {
+font-family: ‘Playfair Display’, serif; font-size: 18px; letter-spacing: 0.12em;
+background: linear-gradient(135deg,#fff,rgba(255,255,255,0.5));
+-webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.status-dot { width: 5px; height: 5px; border-radius: 50%; background: #6affca; animation: pulse 2.5s ease infinite; }
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.3;transform:scale(0.6)} }
+
+/* API selector */
+.api-selector {
+display: flex; align-items: center; gap: 8px;
+background: rgba(255,255,255,0.05);
+border: 1px solid rgba(255,255,255,0.1);
+border-radius: 100px; padding: 7px 14px;
+cursor: pointer; transition: all 0.25s;
+backdrop-filter: blur(12px);
+position: relative;
+}
+.api-selector:hover { background: rgba(255,255,255,0.09); }
+.api-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.api-name { font-size: 11px; font-weight: 500; letter-spacing: 0.08em; color: rgba(255,255,255,0.7); white-space: nowrap; }
+.api-chevron { font-size: 9px; color: rgba(255,255,255,0.35); margin-left: 2px; }
+
+/* dropdown */
+.api-dropdown {
+position: absolute; top: calc(100% + 10px); right: 0;
+background: rgba(14,14,24,0.98);
+border: 1px solid rgba(255,255,255,0.1); border-radius: 16px;
+padding: 8px; min-width: 220px;
+box-shadow: 0 16px 48px rgba(0,0,0,0.6);
+display: none; z-index: 100;
+animation: dropIn 0.2s ease;
+}
+.api-dropdown.open { display: block; }
+@keyframes dropIn { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+
+.api-option {
+display: flex; align-items: center; gap: 10px;
+padding: 10px 12px; border-radius: 10px; cursor: pointer;
+transition: background 0.15s;
+}
+.api-option:hover { background: rgba(255,255,255,0.07); }
+.api-option.active { background: rgba(255,255,255,0.05); }
+.opt-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.opt-info { flex: 1; }
+.opt-name { font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.85); }
+.opt-sub { font-size: 10px; color: rgba(255,255,255,0.35); margin-top: 1px; letter-spacing: 0.04em; }
+.opt-tag {
+font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase;
+padding: 2px 7px; border-radius: 100px; font-weight: 600;
+}
+
+/* key input inside dropdown */
+.key-row {
+margin-top: 6px; padding: 8px 12px 4px;
+border-top: 1px solid rgba(255,255,255,0.06);
+}
+.key-row label { font-size: 10px; color: rgba(255,255,255,0.3); letter-spacing: 0.08em; display: block; margin-bottom: 5px; }
+.key-input-wrap { display: flex; gap: 6px; }
+.key-input {
+flex: 1; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1);
+border-radius: 8px; padding: 7px 10px;
+font-family: ‘Nunito’, sans-serif; font-size: 11px; color: rgba(255,255,255,0.7);
+outline: none;
+}
+.key-input::placeholder { color: rgba(255,255,255,0.2); }
+.key-save {
+background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.12);
+border-radius: 8px; padding: 7px 12px; cursor: pointer;
+font-size: 10px; color: rgba(255,255,255,0.6); font-family: ‘Nunito’, sans-serif;
+transition: background 0.2s;
+}
+.key-save:hover { background: rgba(255,255,255,0.18); }
+
+/* messages */
+.msgs {
+flex: 1; overflow-y: auto; padding: 28px 18px 12px;
+display: flex; flex-direction: column; gap: 16px;
+scrollbar-width: none; position: relative; z-index: 1;
+}
+.msgs::-webkit-scrollbar { display: none; }
+
+.msg { display: flex; flex-direction: column; max-width: min(500px, 84vw); animation: up 0.45s cubic-bezier(0.22,1,0.36,1); }
+@keyframes up { from{opacity:0;transform:translateY(14px)} to{opacity:1;transform:translateY(0)} }
+.msg.user { align-self: flex-end; align-items: flex-end; position: relative; }
+.msg.ai   { align-self: flex-start; align-items: flex-start; }
+
+.lbl {
+font-size: 10px; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase;
+color: rgba(240,238,232,0.28); margin-bottom: 5px; padding: 0 5px;
+}
+
+/* pure glass bubble */
+.bbl {
+padding: 14px 18px; font-size: 15px; font-weight: 400; line-height: 1.75;
+border-radius: 22px; word-break: break-word; white-space: pre-wrap; position: relative; overflow: hidden;
+background: rgba(255,255,255,0.07);
+border: 1px solid rgba(255,255,255,0.1);
+box-shadow: inset 0 1px 0 rgba(255,255,255,0.09), 0 4px 28px rgba(0,0,0,0.22);
+color: rgba(255,255,255,0.86);
+}
+.msg.ai   .bbl { border-radius: 5px 22px 22px 22px; background: rgba(255,255,255,0.06); }
+.msg.user .bbl { border-radius: 22px 5px 22px 22px; background: rgba(255,255,255,0.09); }
+
+/* glass shine */
+.bbl::after {
+content:’’; position:absolute; top:0; left:0; right:0; height:42%;
+background: linear-gradient(to bottom, rgba(255,255,255,0.065), transparent);
+border-radius: inherit; pointer-events: none;
+}
+
+/* emotion glow behind user bubble */
+.eglow {
+position: absolute; inset: -30px; border-radius: 50%;
+filter: blur(35px); pointer-events: none; z-index: -1;
+opacity: 0; transition: opacity 0.7s ease, background 0.9s ease;
+}
+.eg-sad     { background: #4488ff; opacity:0.3; }
+.eg-angry   { background: #ff4040; opacity:0.28; }
+.eg-anxious { background: #aa40ff; opacity:0.27; }
+.eg-happy   { background: #40ffb0; opacity:0.22; }
+.eg-love    { background: #ff50d0; opacity:0.27; }
+.eg-confused{ background: #ffaa40; opacity:0.24; }
+.eg-neutral { background: #aaaaff; opacity:0.10; }
+
+/* typing */
+.typing-wrap { align-self: flex-start; animation: up 0.4s ease; }
+.typing-bbl {
+display:flex; gap:6px; align-items:center; padding:14px 20px;
+background: rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08);
+border-radius:5px 22px 22px 22px; backdrop-filter:blur(24px);
+}
+.typing-bbl span {
+width:5px; height:5px; border-radius:50%; background:rgba(255,255,255,0.45);
+animation:dot 1.3s ease infinite;
+}
+.typing-bbl span:nth-child(2){animation-delay:0.17s}
+.typing-bbl span:nth-child(3){animation-delay:0.34s}
+@keyframes dot { 0%,60%,100%{transform:translateY(0);opacity:0.28} 30%{transform:translateY(-5px);opacity:1} }
+
+/* input */
+.input-area {
+padding: 12px 16px 20px;
+background: rgba(6,6,12,0.95);
+border-top: 1px solid rgba(255,255,255,0.055);
+display:flex; gap:10px; align-items:flex-end; flex-shrink:0; position:relative; z-index:2;
+}
+.iglss {
+flex:1; background:rgba(255,255,255,0.052); border:1px solid rgba(255,255,255,0.09);
+border-radius:20px; padding:12px 17px;
+box-shadow:inset 0 1px 0 rgba(255,255,255,0.06); transition:background 0.2s,border-color 0.2s;
+}
+.iglss:focus-within { background:rgba(255,255,255,0.08); border-color:rgba(255,255,255,0.17); }
+#inp {
+width:100%; background:transparent; border:none; outline:none;
+color:rgba(240,238,232,0.9); font-family:‘Nunito’,sans-serif; font-size:14px; font-weight:400;
+line-height:1.6; resize:none; max-height:108px; scrollbar-width:none;
+}
+#inp::-webkit-scrollbar{display:none}
+#inp::placeholder{color:rgba(240,238,232,0.26)}
+
+.sbtn {
+width:44px; height:44px; border-radius:50%;
+background:rgba(255,255,255,0.09); border:1px solid rgba(255,255,255,0.15);
+color:rgba(255,255,255,0.78); cursor:pointer; flex-shrink:0;
+display:flex; align-items:center; justify-content:center;
+box-shadow:inset 0 1px 0 rgba(255,255,255,0.11),0 2px 14px rgba(0,0,0,0.3);
+transition:all 0.25s;
+}
+.sbtn:hover{background:rgba(255,255,255,0.17);transform:scale(1.06)}
+.sbtn:disabled{opacity:0.28;cursor:not-allowed;transform:none}
+.sbtn svg{width:15px;height:15px}
+
+/* model badge in conversation */
+.model-chip {
+align-self:center; margin:6px 0;
+font-size:10px; letter-spacing:0.1em; text-transform:uppercase;
+color:rgba(255,255,255,0.22); padding:4px 12px;
+border:1px solid rgba(255,255,255,0.07); border-radius:100px;
+background:rgba(255,255,255,0.03);
+}
+</style>
+
+</head>
+<body>
+<canvas id="bg"></canvas>
+
+<!-- LANDING -->
+
+<div id="landing">
+  <div class="logo">Worcon</div>
+  <div class="tw-row"><span id="tw"></span><span class="cur"></span></div>
+  <button class="start-btn" onclick="enterChat()">开始对话</button>
+</div>
+
+<!-- CHAT -->
+
+<div id="chat">
+  <div class="hdr">
+    <div class="hdr-left">
+      <div class="hdr-logo">Worcon</div>
+      <div class="status-dot"></div>
+    </div>
+    <!-- API Selector -->
+    <div class="api-selector" onclick="toggleDropdown(event)">
+      <div class="api-dot" id="cur-dot"></div>
+      <div class="api-name" id="cur-name">Claude Sonnet</div>
+      <div class="api-chevron">▾</div>
+      <div class="api-dropdown" id="dropdown">
+        <!-- Claude -->
+        <div class="api-option active" onclick="selectModel('claude','claude-sonnet-4-20250514','Claude Sonnet 4','#a78bfa','Anthropic · 最新',event)">
+          <div class="opt-dot" style="background:#a78bfa"></div>
+          <div class="opt-info">
+            <div class="opt-name">Claude Sonnet 4</div>
+            <div class="opt-sub">Anthropic · claude-sonnet-4-20250514</div>
+          </div>
+          <div class="opt-tag" style="background:rgba(167,139,250,0.15);color:#a78bfa">活跃</div>
+        </div>
+        <div class="api-option" onclick="selectModel('claude','claude-opus-4-5','Claude Opus 4.5','#c084fc','Anthropic · 强力',event)">
+          <div class="opt-dot" style="background:#c084fc"></div>
+          <div class="opt-info">
+            <div class="opt-name">Claude Opus 4.5</div>
+            <div class="opt-sub">Anthropic · claude-opus-4-5</div>
+          </div>
+        </div>
+        <!-- GPT -->
+        <div class="api-option" onclick="selectModel('openai','gpt-4o','GPT-4o','#34d399','OpenAI',event)">
+          <div class="opt-dot" style="background:#34d399"></div>
+          <div class="opt-info">
+            <div class="opt-name">GPT-4o</div>
+            <div class="opt-sub">OpenAI · gpt-4o</div>
+          </div>
+        </div>
+        <div class="api-option" onclick="selectModel('openai','gpt-4o-mini','GPT-4o mini','#6ee7b7','OpenAI · 轻量',event)">
+          <div class="opt-dot" style="background:#6ee7b7"></div>
+          <div class="opt-info">
+            <div class="opt-name">GPT-4o mini</div>
+            <div class="opt-sub">OpenAI · gpt-4o-mini</div>
+          </div>
+        </div>
+        <!-- Gemini -->
+        <div class="api-option" onclick="selectModel('gemini','gemini-2.0-flash','Gemini 2.0 Flash','#60a5fa','Google',event)">
+          <div class="opt-dot" style="background:#60a5fa"></div>
+          <div class="opt-info">
+            <div class="opt-name">Gemini 2.0 Flash</div>
+            <div class="opt-sub">Google · gemini-2.0-flash</div>
+          </div>
+        </div>
+        <!-- API Key row -->
+        <div class="key-row">
+          <label>API KEY（切换非Claude模型时填入）</label>
+          <div class="key-input-wrap">
+            <input class="key-input" id="api-key-input" type="password" placeholder="sk-... 或 AIza...">
+            <button class="key-save" onclick="saveKey()">保存</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="msgs" id="msgs"></div>
+
+  <div class="input-area">
+    <div class="iglss">
+      <textarea id="inp" rows="1" placeholder="告诉我你今天的状态…"
+        onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+    </div>
+    <button class="sbtn" id="sbtn" onclick="send()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<script>
+/* ══════════════════════════════════
+   LIQUID LIGHT — Perlin-style noise
+══════════════════════════════════ */
+const cv = document.getElementById('bg');
+const cx = cv.getContext('2d');
+let W, H;
+const resize = () => { W = cv.width = innerWidth; H = cv.height = innerHeight; };
+resize(); window.addEventListener('resize', resize);
+
+// Simple smooth noise via sin harmonics
+function noise(x, y, t) {
+  return (
+    Math.sin(x * 1.2 + t * 0.4) * Math.cos(y * 0.9 + t * 0.3) * 0.4 +
+    Math.sin(x * 2.3 + y * 1.7 + t * 0.6) * 0.3 +
+    Math.cos(x * 0.7 - y * 2.1 + t * 0.5) * 0.3
+  );
+}
+
+const COLORS = [
+  [92,  111, 255],  // blue-violet
+  [220,  80, 255],  // magenta
+  [60,  220, 200],  // teal
+  [255,  80, 160],  // pink
+  [100, 180, 255],  // sky
+];
+
+let frame = 0;
+// We draw blobs whose centers oscillate using noise
+const blobs = Array.from({length:6}, (_,i) => ({
+  baseX: Math.random(), baseY: Math.random(),
+  phase: Math.random() * Math.PI * 2,
+  speed: 0.0003 + Math.random() * 0.0003,
+  color: COLORS[i % COLORS.length],
+  size: 0.28 + Math.random() * 0.18,
+}));
+
+function draw() {
+  cx.clearRect(0, 0, W, H);
+  const t = frame * 0.4;
+
+  blobs.forEach(b => {
+    const nx = noise(b.baseX * 3, b.baseY * 3, t * b.speed * 800 + b.phase);
+    const ny = noise(b.baseX * 3 + 100, b.baseY * 3 + 100, t * b.speed * 800 + b.phase + 2);
+    const px = (b.baseX + nx * 0.22) * W;
+    const py = (b.baseY + ny * 0.22) * H;
+    const r  = b.size * Math.min(W, H);
+    const [r0, g0, b0] = b.color;
+
+    // Pulsing size
+    const rr = r * (0.88 + 0.12 * Math.sin(t * 0.008 + b.phase));
+
+    const grad = cx.createRadialGradient(px, py, 0, px, py, rr);
+    grad.addColorStop(0,   `rgba(${r0},${g0},${b0},0.14)`);
+    grad.addColorStop(0.45,`rgba(${r0},${g0},${b0},0.06)`);
+    grad.addColorStop(1,   `rgba(${r0},${g0},${b0},0)`);
+
+    cx.beginPath();
+    cx.arc(px, py, rr, 0, Math.PI * 2);
+    cx.fillStyle = grad;
+    cx.fill();
+  });
+
+  frame++;
+  requestAnimationFrame(draw);
+}
+draw();
+
+/* ══════════════════════════════════
+   TYPEWRITER
+══════════════════════════════════ */
+const phrases = ["帮助你平衡身心","改善你的心理生活","改善内在情绪","讲述你的遭遇","我在这里陪着你"];
+let pi=0,ci=0,del=false;
+const twEl = document.getElementById('tw');
+function type() {
+  const p = phrases[pi];
+  if (!del) {
+    twEl.textContent = p.slice(0,++ci);
+    if (ci===p.length){ del=true; setTimeout(type,2100); return; }
+    setTimeout(type, 72);
+  } else {
+    twEl.textContent = p.slice(0,--ci);
+    if (ci===0){ del=false; pi=(pi+1)%phrases.length; setTimeout(type,340); return; }
+    setTimeout(type,35);
+  }
+}
+type();
+
+/* ══════════════════════════════════
+   MODEL / API STATE
+══════════════════════════════════ */
+let currentProvider = 'claude';
+let currentModel    = 'claude-sonnet-4-20250514';
+let currentModelName= 'Claude Sonnet 4';
+let currentColor    = '#a78bfa';
+let apiKey          = '';
+
+// Set initial dot color
+document.getElementById('cur-dot').style.background = currentColor;
+
+function toggleDropdown(e) {
+  e.stopPropagation();
+  document.getElementById('dropdown').classList.toggle('open');
+}
+document.addEventListener('click', () => document.getElementById('dropdown').classList.remove('open'));
+
+function selectModel(provider, model, name, color, sub, e) {
+  e.stopPropagation();
+  currentProvider = provider;
+  currentModel    = model;
+  currentModelName= name;
+  currentColor    = color;
+  document.getElementById('cur-dot').style.background  = color;
+  document.getElementById('cur-name').textContent       = name;
+  // update active
+  document.querySelectorAll('.api-option').forEach(o => o.classList.remove('active'));
+  e.currentTarget.classList.add('active');
+  // show chip in chat
+  addChip(name);
+}
+
+function saveKey() {
+  apiKey = document.getElementById('api-key-input').value.trim();
+  document.getElementById('dropdown').classList.remove('open');
+}
+
+/* ══════════════════════════════════
+   EMOTION
+══════════════════════════════════ */
+function emotion(t) {
+  if (/难过|伤心|哭|泪|失去|孤独|想念|心碎|绝望|痛苦|委屈/.test(t)) return 'sad';
+  if (/愤怒|生气|烦|讨厌|恨|气死|崩溃|受够/.test(t)) return 'angry';
+  if (/焦虑|紧张|担心|害怕|恐惧|不安|压力|焦躁|慌/.test(t)) return 'anxious';
+  if (/开心|快乐|高兴|喜欢|感谢|幸福|太棒|满足|兴奋/.test(t)) return 'happy';
+  if (/喜欢你|爱你|心动|温暖|爱/.test(t)) return 'love';
+  if (/迷茫|不知道|纠结|搞不懂|为什么|怎么办|困惑/.test(t)) return 'confused';
+  return 'neutral';
+}
+
+/* ══════════════════════════════════
+   CHAT
+══════════════════════════════════ */
+const msgsEl = document.getElementById('msgs');
+const inp    = document.getElementById('inp');
+const sbtn   = document.getElementById('sbtn');
+let history  = [];
+
+function addAiMsg(text) {
+  const w = document.createElement('div'); w.className='msg ai';
+  const l = document.createElement('div'); l.className='lbl'; l.textContent='Worcon';
+  const b = document.createElement('div'); b.className='bbl'; b.textContent=text;
+  w.append(l,b); msgsEl.append(w); msgsEl.scrollTop=msgsEl.scrollHeight;
+}
+
+function addUserMsg(text) {
+  const em = emotion(text);
+  const w  = document.createElement('div'); w.className='msg user';
+  const g  = document.createElement('div'); g.className=`eglow eg-${em}`;
+  const l  = document.createElement('div'); l.className='lbl'; l.textContent='你';
+  const b  = document.createElement('div'); b.className='bbl'; b.textContent=text;
+  w.append(g,l,b); msgsEl.append(w); msgsEl.scrollTop=msgsEl.scrollHeight;
+}
+
+function addChip(name) {
+  const c = document.createElement('div'); c.className='model-chip';
+  c.textContent=`已切换至 ${name}`; msgsEl.append(c); msgsEl.scrollTop=msgsEl.scrollHeight;
+}
+
+function showTyping() {
+  const w=document.createElement('div'); w.className='typing-wrap'; w.id='typing';
+  const l=document.createElement('div'); l.className='lbl'; l.textContent='Worcon';
+  const b=document.createElement('div'); b.className='typing-bbl';
+  b.innerHTML='<span></span><span></span><span></span>';
+  w.append(l,b); msgsEl.append(w); msgsEl.scrollTop=msgsEl.scrollHeight;
+}
+function rmTyping() { const t=document.getElementById('typing'); if(t)t.remove(); }
+
+/* ══════════════════════════════════
+   API CALLS
+══════════════════════════════════ */
+const SYSTEM = `你是 Worcon，一个温柔、有深度的心理陪伴助手。风格：
+- 安静、有温度，不说大道理
+- 先倾听和共情，再轻轻回应
+- 语言真诚，不超过120字
+- 绝不给建议除非用户主动要求
+- 只用中文，不用任何markdown格式`;
+
+async function callClaude(msgs) {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ model:currentModel, max_tokens:1000, system:SYSTEM, messages:msgs })
+  });
+  const d = await res.json();
+  return d.content?.[0]?.text || '我在这里。';
+}
+
+async function callOpenAI(msgs) {
+  const messages = [{role:'system',content:SYSTEM}, ...msgs];
+  const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':`Bearer ${apiKey}`},
+    body: JSON.stringify({ model:currentModel, messages, max_tokens:300 })
+  });
+  const d = await res.json();
+  return d.choices?.[0]?.message?.content || '我在这里。';
+}
+
+async function callGemini(msgs) {
+  const contents = msgs.map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]}));
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${currentModel}:generateContent?key=${apiKey}`;
+  const res = await fetch(url, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ contents, systemInstruction:{parts:[{text:SYSTEM}]} })
+  });
+  const d = await res.json();
+  return d.candidates?.[0]?.content?.parts?.[0]?.text || '我在这里。';
+}
+
+async function send() {
+  const text = inp.value.trim(); if (!text) return;
+  inp.value=''; autoResize(inp);
+  addUserMsg(text);
+  history.push({role:'user', content:text});
+  sbtn.disabled=true; showTyping();
+  try {
+    let reply;
+    if      (currentProvider==='claude') reply = await callClaude(history);
+    else if (currentProvider==='openai') reply = await callOpenAI(history);
+    else                                  reply = await callGemini(history);
+    rmTyping(); addAiMsg(reply);
+    history.push({role:'assistant',content:reply});
+  } catch(e) {
+    rmTyping(); addAiMsg('我在这里，信号有点小问题。稍后再试？');
+  }
+  sbtn.disabled=false; inp.focus();
+}
+
+function enterChat() {
+  document.getElementById('landing').classList.add('hide');
+  document.getElementById('chat').classList.add('show');
+  setTimeout(()=>addAiMsg('你好。\n\n这里只有你和我。\n\n你可以告诉我任何事——今天发生了什么，或者心里压着的。\n\n我在听。'),750);
+}
+
+function handleKey(e) { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();} }
+function autoResize(el) { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,108)+'px'; }
+</script>
+
+</body>
+</html>
