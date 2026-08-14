@@ -1,0 +1,3 @@
+{
+  "buildCommand": "node artifacts/api-server/build.mjs"
+}
