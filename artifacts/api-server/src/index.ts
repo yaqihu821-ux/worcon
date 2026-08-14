@@ -1,14 +1,9 @@
 // @ts-nocheck
-import app from "./app";
-import { logger } from "./lib/logger";
+import app from "./app.js";
+import { logger } from "./lib/logger.js";
 
-const rawPort = process.env["PORT"];
-
-if (!rawPort) {
-  throw new Error(
-    "PORT environment variable is required but was not provided.",
-  );
-}
+// 加上 "3000" 作为默认端口，防止 Vercel 没传 PORT 变量时直接崩溃
+const rawPort = process.env["PORT"] || "3000";
 
 const port = Number(rawPort);
 
