@@ -1,5 +1,5 @@
 // @ts-nocheck
-export { registerAudioRoutes } from "./routes";
+export { registerAudioRoutes } from "./routes/index.js";
 export {
   openai,
   detectAudioFormat,
