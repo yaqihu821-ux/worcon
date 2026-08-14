@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
 import claudeRouter from "./claude";

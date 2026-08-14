@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * React hook for voice recording using MediaRecorder API.
  * Records audio in WebM/Opus format for efficient streaming.

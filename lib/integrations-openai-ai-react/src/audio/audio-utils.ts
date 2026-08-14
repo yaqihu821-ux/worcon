@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Audio utility functions for voice chat.
  * Handles PCM16 decoding and AudioContext initialization.

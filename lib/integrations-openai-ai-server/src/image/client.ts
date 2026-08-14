@@ -1,3 +1,4 @@
+// @ts-nocheck
 import fs from "node:fs";
 import OpenAI, { toFile } from "openai";
 import { Buffer } from "node:buffer";

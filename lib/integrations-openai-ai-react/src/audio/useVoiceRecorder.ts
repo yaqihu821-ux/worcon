@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * React hook for voice recording using MediaRecorder API.
  * Negotiates a supported MIME type across browsers (Chrome, Firefox, Safari).

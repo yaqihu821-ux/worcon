@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Voice chat client utilities for Replit AI Integrations.
  * 

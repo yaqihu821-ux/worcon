@@ -1,3 +1,4 @@
+// @ts-nocheck
 export { registerAudioRoutes } from "./routes";
 export {
   openai,

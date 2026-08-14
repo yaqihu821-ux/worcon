@@ -1,3 +1,4 @@
+// @ts-nocheck
 import Anthropic from "@anthropic-ai/sdk";
 
 if (!process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL) {

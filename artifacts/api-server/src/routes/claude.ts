@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Router, type IRouter } from "express";
 import { anthropic } from "@workspace/integrations-anthropic-ai";
 

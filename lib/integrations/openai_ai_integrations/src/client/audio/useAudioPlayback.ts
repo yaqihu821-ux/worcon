@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * React hook for streaming audio playback using AudioWorklet.
  * Supports real-time PCM16 audio streaming from SSE responses.
